@@ -114,23 +114,12 @@ jobs:
           MISTRAL_DAILY_MAX=10
           EOF
 
-      - name: Run exporter
+     
+
+        - name: Run exporter (local)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          set -e
-          if [ -f hkcompete-backend/export_json.py ]; then
-            python hkcompete-backend/export_json.py --out hkcompete-backend/competitions.json || true
-          elif [ -f hkcompete-backend/scripts/export_json.py ]; then
-            python hkcompete-backend/scripts/export_json.py --out hkcompete-backend/competitions.json || true
-          else
-            echo "export_json.py not found under hkcompete-backend/"
-            exit 1
-          fi
-          echo "== After running exporter, files in hkcompete-backend =="
-          ls -la hkcompete-backend
-          echo "== All JSON files in hkcompete-backend =="
-          find hkcompete-backend -type f -name "*.json" -print
+          python scripts/export_json.py --out competitions.json
 
-  
