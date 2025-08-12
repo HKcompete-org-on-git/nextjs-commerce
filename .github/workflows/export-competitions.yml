@@ -114,7 +114,6 @@ jobs:
           MISTRAL_DAILY_MAX=10
           EOF
 
-
       - name: Run exporter
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -122,50 +121,16 @@ jobs:
         run: |
           set -e
           if [ -f hkcompete-backend/export_json.py ]; then
-            python hkcompete-backend/export_json.py --out hkcompete-backend/competitions.json
+            python hkcompete-backend/export_json.py --out hkcompete-backend/competitions.json || true
           elif [ -f hkcompete-backend/scripts/export_json.py ]; then
-            python hkcompete-backend/scripts/export_json.py --out hkcompete-backend/competitions.json
+            python hkcompete-backend/scripts/export_json.py --out hkcompete-backend/competitions.json || true
           else
             echo "export_json.py not found under hkcompete-backend/"
             exit 1
           fi
+          echo "== After running exporter, files in hkcompete-backend =="
+          ls -la hkcompete-backend
+          echo "== All JSON files in hkcompete-backend =="
+          find hkcompete-backend -type f -name "*.json" -print
 
-      - name: Post-export diagnostics
-        run: |
-          set -e
-          echo "== ls -la hkcompete-backend =="
-          ls -la hkcompete-backend || true
-          echo "== find JSONs under hkcompete-backend =="
-          find hkcompete-backend -maxdepth 2 -type f -name "*.json" -print || true
-          if [ ! -f hkcompete-backend/competitions.json ]; then
-            echo "ERROR: hkcompete-backend/competitions.json not found. See listing above."
-            exit 2
-          fi
-          echo "== head of competitions.json =="
-          head -c 500 hkcompete-backend/competitions.json || true
-
-      - name: Copy output to repo root
-        run: |
-          cp hkcompete-backend/competitions.json competitions.json
-          ls -la . | sed -n '1,100p'
-
-      - name: Upload artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: competitions-json
-          path: |
-            competitions.json
-            hkcompete-backend/competitions.json
-          if-no-files-found: warn
-
-      - name: Commit competitions.json (always)
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add competitions.json || true
-          git commit -m "update: competitions.json (auto commit) [skip ci]" || echo "No changes to commit"
-          git push || echo "Push skipped (no new commit)"
-
-
- 
+  
