@@ -1,0 +1,15 @@
+name: Final Secrets Verification
+on:
+  workflow_dispatch:
+jobs:
+  verify-secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check secrets
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}"
+          echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}"
+          echo "SERPAPI_KEY=${{ secrets.SERPAPI_KEY }}"
+          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}"
+
