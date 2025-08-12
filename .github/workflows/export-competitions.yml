@@ -1,5 +1,4 @@
 name: Export competitions (15m)
-
 on:
   schedule:
     - cron: "*/15 * * * *"   # every 15 minutes UTC
