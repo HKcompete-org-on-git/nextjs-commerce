@@ -1,79 +1,95 @@
 name: secrets-final-verifyz
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment name if your secrets are environment-scoped (e.g., Production)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
 
 jobs:
-  verify:
+  verify-noenv:
+    if: ${{ github.event.inputs.environment == '' }}
     runs-on: ubuntu-latest
-
-    # Map both repo Secrets and repo Variables (plus common aliases)
     env:
       # Firebase API key
       S_FIREBASE_API_KEY_1:   ${{ secrets.FIREBASE_API_KEY }}
       S_FIREBASE_API_KEY_2:   ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
       V_FIREBASE_API_KEY_1:   ${{ vars.FIREBASE_API_KEY }}
       V_FIREBASE_API_KEY_2:   ${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}
-
       # Firebase auth domain
       S_FIREBASE_AUTH_DOMAIN_1: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
       S_FIREBASE_AUTH_DOMAIN_2: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
       V_FIREBASE_AUTH_DOMAIN_1: ${{ vars.FIREBASE_AUTH_DOMAIN }}
       V_FIREBASE_AUTH_DOMAIN_2: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-
       # Supabase URL
       S_SUPABASE_URL_1:       ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       S_SUPABASE_URL_2:       ${{ secrets.SUPABASE_URL }}
       V_SUPABASE_URL_1:       ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
       V_SUPABASE_URL_2:       ${{ vars.SUPABASE_URL }}
-
       # Supabase anon key
       S_SUPABASE_ANON_KEY_1:  ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       S_SUPABASE_ANON_KEY_2:  ${{ secrets.SUPABASE_ANON_KEY }}
       V_SUPABASE_ANON_KEY_1:  ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       V_SUPABASE_ANON_KEY_2:  ${{ vars.SUPABASE_ANON_KEY }}
-
     steps:
-      - name: Check required values exist (bash only; no leaks)
+      - name: Check required values exist (bash; no leaks)
         shell: bash
         run: |
           set -euo pipefail
-
-          missing=()
-          report=""
-
-          pick_any() {
-            # $1 logical name; next 4 are env var names to try (in order)
-            local logical="$1"; shift
-            local v=""; local src=""
-            for envname in "$@"; do
-              local cur="${!envname:-}"
-              if [ -n "$cur" ]; then
-                v="$cur"; src="$envname"; break
-              fi
-            done
-            if [ -z "$v" ]; then
-              missing+=("$logical")
-            else
-              local len=${#v}
-              local hash
-              hash=$(printf "%s" "$v" | sha256sum | cut -c1-8)
-              report="$report\n$logical  from=$src  len=$len  sha256_8=$hash"
-            fi
-          }
-
+          missing=(); report=""
+          pick_any() { local logical="$1"; shift; local v=""; local src=""; for envname in "$@"; do
+            local cur="${!envname:-}"; if [ -n "$cur" ]; then v="$cur"; src="$envname"; break; fi; done
+            if [ -z "$v" ]; then missing+=("$logical"); else
+              local len=${#v}; local hash; hash=$(printf "%s" "$v" | sha256sum | cut -c1-8)
+              report="$report\n$logical  from=$src  len=$len  sha256_8=$hash"; fi; }
           pick_any FIREBASE_API_KEY      S_FIREBASE_API_KEY_1      V_FIREBASE_API_KEY_1      S_FIREBASE_API_KEY_2      V_FIREBASE_API_KEY_2
           pick_any FIREBASE_AUTH_DOMAIN  S_FIREBASE_AUTH_DOMAIN_1  V_FIREBASE_AUTH_DOMAIN_1  S_FIREBASE_AUTH_DOMAIN_2  V_FIREBASE_AUTH_DOMAIN_2
           pick_any SUPABASE_URL          S_SUPABASE_URL_1          V_SUPABASE_URL_1          S_SUPABASE_URL_2          V_SUPABASE_URL_2
           pick_any SUPABASE_ANON_KEY     S_SUPABASE_ANON_KEY_1     V_SUPABASE_ANON_KEY_1     S_SUPABASE_ANON_KEY_2     V_SUPABASE_ANON_KEY_2
+          if [ ${#missing[@]} -gt 0 ]; then echo "❌ Missing: ${missing[*]}"; exit 1; fi
+          echo -e "$report"; echo "✅ All required values present (redacted)"
 
-          if [ ${#missing[@]} -gt 0 ]; then
-            echo "❌ Missing: ${missing[*]}"
-            exit 1
-          fi
-
-          echo -e "$report"
-          echo "✅ All required values present (redacted)"
+  verify-env:
+    if: ${{ github.event.inputs.environment != '' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    env:
+      # same mappings; when an Environment is set, secrets/vars from that Environment are available here
+      S_FIREBASE_API_KEY_1:   ${{ secrets.FIREBASE_API_KEY }}
+      S_FIREBASE_API_KEY_2:   ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+      V_FIREBASE_API_KEY_1:   ${{ vars.FIREBASE_API_KEY }}
+      V_FIREBASE_API_KEY_2:   ${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}
+      S_FIREBASE_AUTH_DOMAIN_1: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+      S_FIREBASE_AUTH_DOMAIN_2: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+      V_FIREBASE_AUTH_DOMAIN_1: ${{ vars.FIREBASE_AUTH_DOMAIN }}
+      V_FIREBASE_AUTH_DOMAIN_2: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+      S_SUPABASE_URL_1:       ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      S_SUPABASE_URL_2:       ${{ secrets.SUPABASE_URL }}
+      V_SUPABASE_URL_1:       ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      V_SUPABASE_URL_2:       ${{ vars.SUPABASE_URL }}
+      S_SUPABASE_ANON_KEY_1:  ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      S_SUPABASE_ANON_KEY_2:  ${{ secrets.SUPABASE_ANON_KEY }}
+      V_SUPABASE_ANON_KEY_1:  ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      V_SUPABASE_ANON_KEY_2:  ${{ vars.SUPABASE_ANON_KEY }}
+    steps:
+      - name: Check required values exist (bash; no leaks)
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=(); report=""
+          pick_any() { local logical="$1"; shift; local v=""; local src=""; for envname in "$@"; do
+            local cur="${!envname:-}"; if [ -n "$cur" ]; then v="$cur"; src="$envname"; break; fi; done
+            if [ -z "$v" ]; then missing+=("$logical"); else
+              local len=${#v}; local hash; hash=$(printf "%s" "$v" | sha256sum | cut -c1-8)
+              report="$report\n$logical  from=$src  len=$len  sha256_8=$hash"; fi; }
+          pick_any FIREBASE_API_KEY      S_FIREBASE_API_KEY_1      V_FIREBASE_API_KEY_1      S_FIREBASE_API_KEY_2      V_FIREBASE_API_KEY_2
+          pick_any FIREBASE_AUTH_DOMAIN  S_FIREBASE_AUTH_DOMAIN_1  V_FIREBASE_AUTH_DOMAIN_1  S_FIREBASE_AUTH_DOMAIN_2  V_FIREBASE_AUTH_DOMAIN_2
+          pick_any SUPABASE_URL          S_SUPABASE_URL_1          V_SUPABASE_URL_1          S_SUPABASE_URL_2          V_SUPABASE_URL_2
+          pick_any SUPABASE_ANON_KEY     S_SUPABASE_ANON_KEY_1     V_SUPABASE_ANON_KEY_1     S_SUPABASE_ANON_KEY_2     V_SUPABASE_ANON_KEY_2
+          if [ ${#missing[@]} -gt 0 ]; then echo "❌ Missing: ${missing[*]}"; exit 1; fi
+          echo -e "$report"; echo "✅ All required values present (redacted)"
 
