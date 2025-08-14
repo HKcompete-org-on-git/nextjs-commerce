@@ -1,4 +1,4 @@
-name: secrets-final-verify
+name: secrets-final-verifyz
 on:
   workflow_dispatch:
 
