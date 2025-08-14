@@ -1,0 +1,41 @@
+name: Export JSON
+
+on:
+  workflow_dispatch: {}  # enables the "Run workflow" button
+
+jobs:
+  run-export-json:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # If your script needs dependencies, uncomment and edit:
+      # - name: Install deps
+      #   run: |
+      #     python -m pip install --upgrade pip
+      #     pip install -r hkcompete-backend/requirements.txt
+
+      - name: Show tree for debugging
+        run: |
+          pwd
+          ls -la
+          ls -la hkcompete-backend || true
+
+      - name: Run export_json.py
+        working-directory: .
+        run: |
+          python hkcompete-backend/export_json.py
+        env:
+          # If your script reads env vars, set them here (or use repo secrets)
+          # EXAMPLE_ENV: ${{ secrets.EXAMPLE_ENV }}
+          PYTHONUNBUFFERED: "1"
