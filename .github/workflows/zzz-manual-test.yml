@@ -1,10 +1,74 @@
-name: ZZZ Manual Test
+name: Export Competitions (manual + cron)
 
 on:
-  workflow_dispatch:  # shows the Run workflow button
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"  # every 15 minutes UTC
+
+permissions:
+  contents: write
 
 jobs:
-  ping:
+  export:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
     steps:
-      - run: echo "hi from manual run"
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # If you later add secrets, this is where they go. Safe to keep even if unused.
+      - name: Create .env (optional)
+        run: |
+          cat > .env << 'EOF'
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
+          EOF
+
+      # Run your local exporter if present; otherwise generate a placeholder JSON inline.
+      - name: Run exporter or fallback
+        run: |
+          set -e
+          if [ -f scripts/export_json.py ]; then
+            echo "Found scripts/export_json.py"
+            python scripts/export_json.py --out competitions.json
+          else
+            echo "No scripts/export_json.py — generating placeholder JSON inline."
+            python - <<'PY'
+import json, time, sys
+out = "competitions.json"
+payload = {
+  "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+  "source": "inline-fallback",
+  "items": []
+}
+with open(out, "w", encoding="utf-8") as f:
+    json.dump(payload, f, ensure_ascii=False, indent=2)
+print(f"Wrote {out}")
+PY
+          fi
+          echo "== repo root after export ==" && ls -la
+          echo "== preview competitions.json ==" && head -n 30 competitions.json || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: competitions-json
+          path: competitions.json
+          if-no-files-found: error
+
+      - name: Commit competitions.json
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f competitions.json
+          git commit -m "update: competitions.json [skip ci]" || echo "No changes to commit"
+          git push || echo "Push skipped"
+
