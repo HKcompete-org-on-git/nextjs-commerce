@@ -1,0 +1,10 @@
+name: ZZZ Manual Test
+
+on:
+  workflow_dispatch:  # shows the Run workflow button
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "hi from manual run"
