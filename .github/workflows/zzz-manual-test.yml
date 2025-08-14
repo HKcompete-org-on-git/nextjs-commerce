@@ -1,4 +1,4 @@
-name: secrets-final-verify
+name: secrets-final-verifyz
 on:
   workflow_dispatch:
 
@@ -8,56 +8,34 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    # Try multiple common names for each secret. Python will pick whichever is set.
     env:
-      # Firebase API key
-      FB_API_KEY_A:                 ${{ secrets.FIREBASE_API_KEY }}
-      FB_API_KEY_B:                 ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-      # Firebase Auth domain
-      FB_AUTH_DOMAIN_A:             ${{ secrets.FIREBASE_AUTH_DOMAIN }}
-      FB_AUTH_DOMAIN_B:             ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-      # Supabase URL
-      SUPA_URL_A:                   ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      SUPA_URL_B:                   ${{ secrets.SUPABASE_URL }}
-      # Supabase anon key
-      SUPA_ANON_A:                  ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      SUPA_ANON_B:                  ${{ secrets.SUPABASE_ANON_KEY }}
+      # Secrets (primary)
+      S_FB_API_A:                  ${{ secrets.FIREBASE_API_KEY }}
+      S_FB_API_B:                  ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+      S_FB_DOMAIN_A:               ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+      S_FB_DOMAIN_B:               ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+      S_SUPA_URL_A:                ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      S_SUPA_URL_B:                ${{ secrets.SUPABASE_URL }}
+      S_SUPA_ANON_A:               ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      S_SUPA_ANON_B:               ${{ secrets.SUPABASE_ANON_KEY }}
+
+      # Variables (fallback)
+      V_FB_API_A:                  ${{ vars.FIREBASE_API_KEY }}
+      V_FB_API_B:                  ${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}
+      V_FB_DOMAIN_A:               ${{ vars.FIREBASE_AUTH_DOMAIN }}
+      V_FB_DOMAIN_B:               ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+      V_SUPA_URL_A:                ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      V_SUPA_URL_B:                ${{ vars.SUPABASE_URL }}
+      V_SUPA_ANON_A:               ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      V_SUPA_ANON_B:               ${{ vars.SUPABASE_ANON_KEY }}
+
     steps:
-      - name: Check required secrets exist (values never printed)
+      - name: Check required secrets/vars exist (values never printed)
         run: |
           python - <<'PY'
           import os, sys, hashlib, json
 
-          def pick(nameA, nameB):
-            vA, vB = os.getenv(nameA), os.getenv(nameB)
-            if vA: return vA, nameA
-            if vB: return vB, nameB
-            return None, None
-
-          checks = [
-            ("FIREBASE_API_KEY",       *("FB_API_KEY_A","FB_API_KEY_B")),
-            ("FIREBASE_AUTH_DOMAIN",   *("FB_AUTH_DOMAIN_A","FB_AUTH_DOMAIN_B")),
-            ("SUPABASE_URL",           *("SUPA_URL_A","SUPA_URL_B")),
-            ("SUPABASE_ANON_KEY",      *("SUPA_ANON_A","SUPA_ANON_B")),
-          ]
-
-          report, missing = {}, []
-          for logical, a, b in checks:
-            val, source = pick(a,b)
-            if not val:
-              missing.append(logical)
-            else:
-              report[logical] = {
-                "from": source,
-                "len": len(val),
-                "sha256_8": hashlib.sha256(val.encode()).hexdigest()[:8],
-              }
-
-          if missing:
-            print("❌ Missing secrets:", ", ".join(missing))
-            print("Hint: Either add those as repo secrets, or tell me the names you used and we’ll map them.")
-            sys.exit(1)
-
-          print(json.dumps(report, indent=2))
-          print("✅ All required secrets are present (redacted)")
-          PY
+          def first_nonempty(keys):
+            for k in keys:
+              v = os.getenv(k)
+              if v:
