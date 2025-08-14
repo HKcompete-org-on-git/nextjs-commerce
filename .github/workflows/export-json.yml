@@ -9,9 +9,9 @@ on:
         default: "export/export.json"
         type: string
       json:
-        description: "JSON payload to write (paste valid JSON)"
-        required: true
-        default: '{ "status": "ok", "run_id": "${{ github.run_id }}" }'
+        description: "JSON payload to write (leave as {} to only include run metadata)"
+        required: false
+        default: "{}"
         type: string
       commit_to_repo:
         description: "Also commit the file back to the repo?"
@@ -25,29 +25,37 @@ permissions:
 jobs:
   export:
     runs-on: ubuntu-latest
+    env:
+      OUTFILE: ${{ github.event.inputs.filename }}
+      PAYLOAD: ${{ github.event.inputs.json }}
+      GITHUB_RUN_ID: ${{ github.run_id }}
+      GITHUB_SHA: ${{ github.sha }}
+      GITHUB_REF_NAME: ${{ github.ref_name }}
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Validate & write JSON
         run: |
           python - <<'PY'
-          import json, os, sys, pathlib
-          payload = os.environ["PAYLOAD"]
-          outpath = os.environ["OUTFILE"]
-          # validate JSON
+          import json, os, pathlib, sys
+          payload = os.getenv("PAYLOAD") or "{}"
           try:
               data = json.loads(payload)
           except Exception as e:
-              print("❌ Invalid JSON:", e)
+              print(f"❌ Invalid JSON: {e}")
               sys.exit(1)
-          p = pathlib.Path(outpath)
+
+          # Add run metadata without overwriting if user already provided keys
+          data.setdefault("run_id", os.getenv("GITHUB_RUN_ID"))
+          data.setdefault("commit_sha", os.getenv("GITHUB_SHA"))
+          data.setdefault("ref", os.getenv("GITHUB_REF_NAME"))
+
+          p = pathlib.Path(os.getenv("OUTFILE"))
           p.parent.mkdir(parents=True, exist_ok=True)
           p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
           print(f"✅ Wrote {p}")
           PY
-        env:
-          PAYLOAD: ${{ github.event.inputs.json }}
-          OUTFILE: ${{ github.event.inputs.filename }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -56,7 +64,7 @@ jobs:
           path: ${{ github.event.inputs.filename }}
 
       - name: Commit & push (optional)
-        if: ${{ github.event.inputs.commit_to_repo == 'true' }}
+        if: ${{ fromJSON(github.event.inputs.commit_to_repo || 'false') }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -66,4 +74,5 @@ jobs:
           fi
           git commit -m "chore: export JSON via workflow"
           git push
+
 
