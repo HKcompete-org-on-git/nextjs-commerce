@@ -61,8 +61,8 @@ jobs:
           MISTRAL_DAILY_MAX=10
           EOF
 
-      - name: Run exporter
-        run: python export_json.py --out competitions.json
+          - name: Run exporter
+           run: python hkcompete-backend/export_json.py --out competitions.json
 
       - name: Commit if changed
         run: |
