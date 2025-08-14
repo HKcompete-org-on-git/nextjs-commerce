@@ -2,15 +2,67 @@ name: export-json
 
 on:
   workflow_dispatch:
+    inputs:
+      filename:
+        description: "Where to save the JSON file"
+        required: true
+        default: "export/export.json"
+        type: string
+      json:
+        description: "JSON payload to write (paste valid JSON)"
+        required: true
+        default: '{ "status": "ok", "run_id": "${{ github.run_id }}" }'
+        type: string
+      commit_to_repo:
+        description: "Also commit the file back to the repo?"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   export:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out
-        uses: actions/checkout@v4
-      - name: Sanity echo
-        run: echo "export-json shell is valid"
+      - uses: actions/checkout@v4
+
+      - name: Validate & write JSON
+        run: |
+          python - <<'PY'
+          import json, os, sys, pathlib
+          payload = os.environ["PAYLOAD"]
+          outpath = os.environ["OUTFILE"]
+          # validate JSON
+          try:
+              data = json.loads(payload)
+          except Exception as e:
+              print("❌ Invalid JSON:", e)
+              sys.exit(1)
+          p = pathlib.Path(outpath)
+          p.parent.mkdir(parents=True, exist_ok=True)
+          p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+          print(f"✅ Wrote {p}")
+          PY
+        env:
+          PAYLOAD: ${{ github.event.inputs.json }}
+          OUTFILE: ${{ github.event.inputs.filename }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: exported-json
+          path: ${{ github.event.inputs.filename }}
+
+      - name: Commit & push (optional)
+        if: ${{ github.event.inputs.commit_to_repo == 'true' }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${{ github.event.inputs.filename }}"
+          if git diff --cached --quiet; then
+            echo "No changes to commit"; exit 0
+          fi
+          git commit -m "chore: export JSON via workflow"
+          git push
