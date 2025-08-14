@@ -1,7 +1,13 @@
-name: EZ Export (manual)
+name: EZ Manual Test
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # <- this makes the Run workflow button appear
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "hi from manual run"
 
 permissions:
   contents: write
