@@ -1,48 +1,35 @@
-name: secrets-inventory
+name: secrets-final-verify
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
-  list:
+  verify:
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ github.token }}   # let gh call GitHub API
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
     steps:
-      - name: Repo info
+      - name: Check required values exist (no leaks)
+        shell: bash
         run: |
-          echo "Repo: $GITHUB_REPOSITORY"
+          set -euo pipefail
+          missing=()
+          [ -n "${SUPABASE_URL:-}" ] || missing+=("SUPABASE_URL")
+          [ -n "${SUPABASE_KEY:-}" ] || missing+=("SUPABASE_KEY")
 
-      - name: Repository VARIABLES (names only)
-        run: |
-          gh api -H "Accept: application/vnd.github+json" \
-            "/repos/$GITHUB_REPOSITORY/actions/variables" \
-            | jq -r '.variables[]?.name' || true
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "❌ Missing: ${missing[*]}"
+            exit 1
+          fi
 
-      - name: Repository SECRETS (names only)
-        run: |
-          gh api -H "Accept: application/vnd.github+json" \
-            "/repos/$GITHUB_REPOSITORY/actions/secrets" \
-            | jq -r '.secrets[]?.name' || true
-
-      - name: Environments (names)
-        run: |
-          gh api -H "Accept: application/vnd.github+json" \
-            "/repos/$GITHUB_REPOSITORY/environments" \
-            | jq -r '.environments[]?.name' || true
-
-      - name: Environment SECRETS (names only, per env)
-        run: |
-          envs=$(gh api -H "Accept: application/vnd.github+json" "/repos/$GITHUB_REPOSITORY/environments" | jq -r '.environments[]?.name')
-          for e in $envs; do
-            echo "== $e =="
-            gh api -H "Accept: application/vnd.github+json" \
-              "/repos/$GITHUB_REPOSITORY/environments/$e/secrets" \
-              | jq -r '.secrets[]?.name' || true
-            echo
-          done
+          # Redacted fingerprints
+          url_hash=$(printf "%s" "$SUPABASE_URL" | sha256sum | cut -c1-8)
+          key_hash=$(printf "%s" "$SUPABASE_KEY" | sha256sum | cut -c1-8)
+          echo "SUPABASE_URL len=${#SUPABASE_URL} sha256_8=$url_hash"
+          echo "SUPABASE_KEY len=${#SUPABASE_KEY} sha256_8=$key_hash"
+          echo "✅ Both Supabase secrets are present"
 
 
