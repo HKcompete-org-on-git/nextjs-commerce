@@ -1,10 +1,16 @@
-name: zz-ping
+name: export-json
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  ping:
+  export:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "✅ It works"
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Sanity echo
+        run: echo "export-json shell is valid"
