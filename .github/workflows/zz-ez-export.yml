@@ -1,88 +1,13 @@
 name: EZ Manual Test
 
 on:
-  workflow_dispatch:  # <- this makes the Run workflow button appear
+  workflow_dispatch:  # this is what shows the Run button
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
       - run: echo "hi from manual run"
-
-permissions:
-  contents: write
-
-jobs:
-  export:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Create .env (minimal)
-        run: |
-          cat > .env << 'EOF'
-          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
-          EOF
-
-      - name: Run exporter (use local script if present, else placeholder)
-        run: |
-          if [ -f scripts/export_json.py ]; then
-            echo "Found scripts/export_json.py"
-            python scripts/export_json.py --out competitions.json || (echo "Exporter failed, writing placeholder" && python - <<'PY'
-import json, time
-with open("competitions.json","w",encoding="utf-8") as f:
-    json.dump({"generated_at": time.strftime("%Y-%m-%d %H:%M:%S"), "items":[]}, f, ensure_ascii=False, indent=2)
-print("Wrote competitions.json (placeholder)")
-PY
-)
-          else
-            echo "No scripts/export_json.py; writing placeholder"
-            python - <<'PY'
-import json, time
-with open("competitions.json","w",encoding="utf-8") as f:
-    json.dump({"generated_at": time.strftime("%Y-%m-%d %H:%M:%S"), "items":[]}, f, ensure_ascii=False, indent=2)
-print("Wrote competitions.json (placeholder)")
-PY
-          fi
-          ls -la
-
-      - name: Upload artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: competitions-json
-          path: competitions.json
-          if-no-files-found: error
-
-      - name: Commit competitions.json
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f competitions.json
-          git commit -m "update: competitions.json (EZ Export) [skip ci]" || echo "No changes to commit"
-          git push || echo "Push skipped"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
