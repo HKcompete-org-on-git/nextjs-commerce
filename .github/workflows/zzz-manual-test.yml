@@ -1,68 +1,63 @@
-name: export-json
-
+name: secrets-final-verify
 on:
   workflow_dispatch:
-    inputs:
-      filename:
-        description: "Where to save the JSON file"
-        required: true
-        default: "export/export.json"
-        type: string
-      json:
-        description: "JSON payload to write (paste valid JSON)"
-        required: true
-        default: '{ "status": "ok", "run_id": "${{ github.run_id }}" }'
-        type: string
-      commit_to_repo:
-        description: "Also commit the file back to the repo?"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  export:
+  verify:
     runs-on: ubuntu-latest
+    # Try multiple common names for each secret. Python will pick whichever is set.
+    env:
+      # Firebase API key
+      FB_API_KEY_A:                 ${{ secrets.FIREBASE_API_KEY }}
+      FB_API_KEY_B:                 ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+      # Firebase Auth domain
+      FB_AUTH_DOMAIN_A:             ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+      FB_AUTH_DOMAIN_B:             ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+      # Supabase URL
+      SUPA_URL_A:                   ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPA_URL_B:                   ${{ secrets.SUPABASE_URL }}
+      # Supabase anon key
+      SUPA_ANON_A:                  ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPA_ANON_B:                  ${{ secrets.SUPABASE_ANON_KEY }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Validate & write JSON
+      - name: Check required secrets exist (values never printed)
         run: |
           python - <<'PY'
-          import json, os, sys, pathlib
-          payload = os.environ["PAYLOAD"]
-          outpath = os.environ["OUTFILE"]
-          # validate JSON
-          try:
-              data = json.loads(payload)
-          except Exception as e:
-              print("❌ Invalid JSON:", e)
-              sys.exit(1)
-          p = pathlib.Path(outpath)
-          p.parent.mkdir(parents=True, exist_ok=True)
-          p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-          print(f"✅ Wrote {p}")
+          import os, sys, hashlib, json
+
+          def pick(nameA, nameB):
+            vA, vB = os.getenv(nameA), os.getenv(nameB)
+            if vA: return vA, nameA
+            if vB: return vB, nameB
+            return None, None
+
+          checks = [
+            ("FIREBASE_API_KEY",       *("FB_API_KEY_A","FB_API_KEY_B")),
+            ("FIREBASE_AUTH_DOMAIN",   *("FB_AUTH_DOMAIN_A","FB_AUTH_DOMAIN_B")),
+            ("SUPABASE_URL",           *("SUPA_URL_A","SUPA_URL_B")),
+            ("SUPABASE_ANON_KEY",      *("SUPA_ANON_A","SUPA_ANON_B")),
+          ]
+
+          report, missing = {}, []
+          for logical, a, b in checks:
+            val, source = pick(a,b)
+            if not val:
+              missing.append(logical)
+            else:
+              report[logical] = {
+                "from": source,
+                "len": len(val),
+                "sha256_8": hashlib.sha256(val.encode()).hexdigest()[:8],
+              }
+
+          if missing:
+            print("❌ Missing secrets:", ", ".join(missing))
+            print("Hint: Either add those as repo secrets, or tell me the names you used and we’ll map them.")
+            sys.exit(1)
+
+          print(json.dumps(report, indent=2))
+          print("✅ All required secrets are present (redacted)")
           PY
-        env:
-          PAYLOAD: ${{ github.event.inputs.json }}
-          OUTFILE: ${{ github.event.inputs.filename }}
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: exported-json
-          path: ${{ github.event.inputs.filename }}
-
-      - name: Commit & push (optional)
-        if: ${{ github.event.inputs.commit_to_repo == 'true' }}
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "${{ github.event.inputs.filename }}"
-          if git diff --cached --quiet; then
-            echo "No changes to commit"; exit 0
-          fi
-          git commit -m "chore: export JSON via workflow"
-          git push
