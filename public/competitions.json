@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "title": "Example Competition",
+    "category": "Other",
+    "eligibility": null,
+    "deadline": null,
+    "link": "https://example.com",
+    "description": "placeholder from CI"
+  }
+]
