@@ -1,60 +1,36 @@
 import { ReadonlyURLSearchParams } from 'next/navigation';
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
 
-
-
-export const baseUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
-  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-  : 'http://localhost:3000';
+// Use env if provided, otherwise fall back to your dev URL (port 3010)
+export const baseUrl =
+  process.env.NEXT_PUBLIC_SITE_URL?.startsWith('http')
+    ? process.env.NEXT_PUBLIC_SITE_URL!
+    : process.env.NEXT_PUBLIC_SITE_URL
+    ? `https://${process.env.NEXT_PUBLIC_SITE_URL}`
+    : 'http://127.0.0.1:3010';
 
 export const createUrl = (
   pathname: string,
   params: URLSearchParams | ReadonlyURLSearchParams
 ) => {
-  const paramsString = params.toString();
-  const queryString = `${paramsString.length ? '?' : ''}${paramsString}`;
-
-  return `${pathname}${queryString}`;
+  const qs = params.toString();
+  return `${pathname}${qs ? `?${qs}` : ''}`;
 };
 
-export const ensureStartsWith = (stringToCheck: string, startsWith: string) =>
-  stringToCheck.startsWith(startsWith)
-    ? stringToCheck
-    : `${startsWith}${stringToCheck}`;
+export const ensureStartsWith = (s: string, prefix: string) =>
+  s.startsWith(prefix) ? s : `${prefix}${s}`;
 
+// (Optional, used in some templates)
 export const validateEnvironmentVariables = () => {
-  const requiredEnvironmentVariables = [
-    'SHOPIFY_STORE_DOMAIN',
-    'SHOPIFY_STOREFRONT_ACCESS_TOKEN'
-  ];
-  const missingEnvironmentVariables = [] as string[];
-
-  requiredEnvironmentVariables.forEach((envVar) => {
-    if (!process.env[envVar]) {
-      missingEnvironmentVariables.push(envVar);
-    }
-  });
-
-  if (missingEnvironmentVariables.length) {
+  const required = ['SHOPIFY_STORE_DOMAIN', 'SHOPIFY_STOREFRONT_ACCESS_TOKEN'];
+  const missing: string[] = [];
+  for (const key of required) {
+    if (!process.env[key]) missing.push(key);
+  }
+  if (missing.length) {
     throw new Error(
-      `The following environment variables are missing. Your site will not work without them. Read more: https://vercel.com/docs/integrations/shopify#configure-environment-variables\n\n${missingEnvironmentVariables.join(
-        '\n'
-      )}\n`
+      `Missing required env vars:\n${missing.join('\n')}\n` +
+        `Add them to .env.local`
     );
   }
-
-  if (
-    process.env.SHOPIFY_STORE_DOMAIN?.includes('[') ||
-    process.env.SHOPIFY_STORE_DOMAIN?.includes(']')
-  ) {
-    throw new Error(
-      'Your `SHOPIFY_STORE_DOMAIN` environment variable includes brackets (ie. `[` and / or `]`). Your site will not work with them there. Please remove them.'
-    );
-  }
-  // shadcn helper used by components
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
 };
+
