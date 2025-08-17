@@ -15,36 +15,62 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXTRACTOR_ORDER: rules
+      CSE_PAGES_PER_QUERY: '2'
+      CSE_DATE_RESTRICT: m12
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Show repo tree (debug)
         shell: bash
         run: |
           pwd
           ls -la
-          find . -maxdepth 2 -type f \( -name "requirements.txt" -o -name "scraper.py" \) | sort || true
+          # show likely locations
+          find . -maxdepth 3 -type f \( -name "scraper.py" -o -name "requirements.txt" \) -print | sed 's|^\./||' | sort || true
 
-      - name: Ensure requirements.txt exists
+      - name: Determine paths
+        id: paths
         shell: bash
         run: |
-          if [ ! -f requirements.txt ]; then
-            echo "requests" > requirements.txt
-            echo "beautifulsoup4" >> requirements.txt
-            echo "python-dotenv" >> requirements.txt
-            echo "certifi" >> requirements.txt
+          if [ -f "hkcompete-backend/requirements.txt" ]; then
+            echo "req=hkcompete-backend/requirements.txt" >> $GITHUB_OUTPUT
+          elif [ -f "requirements.txt" ]; then
+            echo "req=requirements.txt" >> $GITHUB_OUTPUT
+          else
+            echo "req=" >> $GITHUB_OUTPUT
+          fi
+          if [ -f "hkcompete-backend/scraper.py" ]; then
+            echo "scr=hkcompete-backend/scraper.py" >> $GITHUB_OUTPUT
+          elif [ -f "scraper.py" ]; then
+            echo "scr=scraper.py" >> $GITHUB_OUTPUT
+          else
+            echo "scr=" >> $GITHUB_OUTPUT
           fi
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: ${{ steps.paths.outputs.req }}
 
-      - name: Install deps
+      - name: Ensure requirements.txt exists or install inline
+        shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -n "${{ steps.paths.outputs.req }}" ]; then
+            pip install -r "${{ steps.paths.outputs.req }}"
+          else
+            # fallback if no file
+            pip install requests beautifulsoup4 python-dotenv certifi
+          fi
 
       - name: Ensure public/competitions.json exists
         shell: bash
@@ -52,25 +78,25 @@ jobs:
           mkdir -p public
           [ -f public/competitions.json ] || echo "[]" > public/competitions.json
 
-      - name: Run scraper (static export, rules-only)
-        env:
-          EXTRACTOR_ORDER: rules
-          CSE_PAGES_PER_QUERY: '2'
-          CSE_DATE_RESTRICT: m12
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
+      - name: Run scraper (rules-only)
+        shell: bash
         run: |
-          python scraper.py --out public/competitions.json --pretty
+          if [ -z "${{ steps.paths.outputs.scr }}" ]; then
+            echo "scraper.py not found" >&2
+            exit 1
+          fi
+          python "${{ steps.paths.outputs.scr }}" --out public/competitions.json --pretty
 
       - name: Commit updated JSON if changed
         shell: bash
         run: |
-          if git diff --quiet -- public/competitions.json; then
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/competitions.json
+          if git diff --staged --quiet; then
             echo "No changes"
           else
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add public/competitions.json
-            git commit -m "nightly scrape"
+            git commit -m "nightly scrape: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
             git push
           fi
+
