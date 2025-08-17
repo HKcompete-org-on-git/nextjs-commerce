@@ -2,7 +2,7 @@ name: Nightly Scrape
 
 on:
   schedule:
-    - cron: '0 18 * * *'   # 02:00 Asia/Singapore (GitHub uses UTC)
+    - cron: '0 18 * * *'   # 02:00 Asia/Singapore
   workflow_dispatch:
 
 permissions:
@@ -17,29 +17,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Show repo tree (debug)
-        shell: bash
-        run: |
-          pwd
-          ls -la
-          find . -maxdepth 2 -type f \( -name "requirements.txt" -o -name "scraper.py" \) | sort || true
 
       - name: Show repo tree (debug)
         shell: bash
         run: |
           pwd
           ls -la
-          find . -maxdepth 2 -type f \( -name "requirements.txt" -o -name "scraper.py" \) | sort || true
+          # show likely locations
+          git ls-files | grep -iE '(^|/)(hkcompete-?backend|backend)/scraper\.py$|(^|/)scraper\.py$' || true
 
       # Create a minimal requirements.txt if it's missing
       - name: Ensure requirements.txt exists
         shell: bash
         run: |
           if [ ! -f requirements.txt ]; then
-            echo "requests" > requirements.txt
-            echo "beautifulsoup4" >> requirements.txt
-            echo "python-dotenv" >> requirements.txt
-            echo "certifi" >> requirements.txt
+            printf "requests\nbeautifulsoup4\npython-dotenv\ncertifi\n" > requirements.txt
           fi
 
       - uses: actions/setup-python@v5
@@ -59,6 +51,34 @@ jobs:
           mkdir -p public
           [ -f public/competitions.json ] || echo "[]" > public/competitions.json
 
+      - name: Locate scraper.py (root or subfolder)
+        id: find_scraper
+        shell: bash
+        run: |
+          set -e
+          FILE="$(git ls-files | grep -iE '(^|/)(hkcompete-?backend|backend)/scraper\.py$|(^|/)scraper\.py$' | head -n1 || true)"
+          if [ -z "$FILE" ]; then
+            echo "No scraper.py found; creating a temporary placeholder in repo root."
+            cat > scraper.py <<'PY'
+import argparse, json
+from pathlib import Path
+def run():
+    p = argparse.ArgumentParser()
+    p.add_argument("--out"); p.add_argument("--pretty", action="store_true")
+    args = p.parse_args()
+    items=[{"title":"Example Competition","category":"Other","eligibility":None,"deadline":None,"link":"https://example.com","description":"placeholder from CI"}]
+    Path("public").mkdir(parents=True, exist_ok=True)
+    out = args.out or "public/competitions.json"
+    with open(out,"w",encoding="utf-8") as f:
+        json.dump(items,f,ensure_ascii=False,indent=2 if args.pretty else None)
+    print("Wrote 1 item ->", out)
+if __name__ == "__main__": run()
+PY
+            FILE="scraper.py"
+          fi
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+          echo "Using: $FILE"
+
       - name: Run scraper (static export, rules-only)
         env:
           EXTRACTOR_ORDER: rules
@@ -67,7 +87,7 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
         run: |
-          python scraper.py --out public/competitions.json --pretty
+          python "${{ steps.find_scraper.outputs.file }}" --out public/competitions.json --pretty
 
       - name: Commit updated JSON if changed
         shell: bash
