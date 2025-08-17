@@ -1,10 +1,34 @@
 [
   {
-    "title": "Example Competition",
-    "category": "Other",
+    "title": "資優生中小學奧林匹克國際比賽報名｜香港資優教育學苑",
+    "category": "STEM",
+    "eligibility": null,
+    "deadline": "2025-06-02",
+    "link": "https://www.hkage.edu.hk/articles/competitions",
+    "description": null
+  },
+  {
+    "title": "Hong Kong Science Fair â A platform to showcase studentsâ creative talents",
+    "category": "STEM",
     "eligibility": null,
     "deadline": null,
-    "link": "https://example.com",
-    "description": "placeholder from CI"
+    "link": "https://www.hksciencefair.org.hk/",
+    "description": "The Inaugural Hong Kong Science Fair (HKSF) is organised by the Hong Kong Innovation Foundation (HKIF). HKSF provides a platform for students to showcase their creative talents. It is a competition, with the theme of âThink Big Be Innovativeâ, that aims to bring about the young peopleâs best efforts by challenging them to apply their knowledge of science and creativity to solving various problems in life. The exhibition will be held from 19 to 20 February 2022 at the Hong Kong Convention and Exhibition Centre."
+  },
+  {
+    "title": "CityUHK Science Video Competition 2025 | College of Science",
+    "category": "STEM",
+    "eligibility": null,
+    "deadline": null,
+    "link": "https://www.cityu.edu.hk/csci/local-school-outreach/cityuhk-science-video-competition-2025",
+    "description": "CityUHK Science Video Competition 2025 | College of Science Skip to main content College of Science Quick Links Quick link 1 Quick link 2 Main navigation About Us Message from the Dean Vision and Mission Facts and Figures Academic Rankings People Management Team Notable Scholars General Office Academic Units Department of Chemistry Department of Mathematics Department of Physics Boards and Committees Awards and Recognitions Distinguished Alumni Award (ALA) Teaching Excellence Award (TEA) Outstanding Knowledge Transfer & Impact Award (KTIA) Outstanding Young Researcher Award (YRA) Contact Us News & Events News and Achievements Events Upcoming Events Past Events Media Coverage Newsletter Social Media Videos Local School Outreach CityUHK Science Patent Challenge CityUHK Science Video Competition Popular Science Talks"
+  },
+  {
+    "title": "Logistics Engineering Design Challenge",
+    "category": "STEM",
+    "eligibility": null,
+    "deadline": null,
+    "link": "https://www.atec.edu.hk/stemcentre/competition-2025/",
+    "description": "Logistics Engineering Design Challenge ææ°æ¶æ¯ çå¿µ æ¯è³½è©³æ åè¦å æ¥ç¨ å ¥ååå®ååçµ ä¸è¼ æ¥è©¢ è³½æ åæ¬ä¸­å¿ 7-72025 æ±ºè³½æ¥æ´»åæµç¨ : ( å°å­¸çµ ã ä¸­å­¸çµ ) 2-7-2025 æ±ºè³½æ¥æ¯è³½å®æä¸è¦½ :ï¼ å°å­¸çµ ã ä¸­å­¸çµ ï¼ 30-6-2025 å°å­¸çµè£ç½®å¤è§è¨­è¨æ¯è³½ æ±ºè³½åå® 27-6-2025 æåæç´é ç®(1)æ±ºè³½éä¼åå®ï¼ ææ­¤æ¥é± 16-6-2025 åè³½æ¥ç¨åºå®æï¼ï¼ å°å­¸çµ ä¸¶ ä¸­å­¸çµ ï¼ è£ç½®å¤è§è¨­è¨æ¯è³½-ç­çåç¸çä¸è¼æªæ­¢æ¥æ6æ23æ¥ï¼ ææ­¤ä¸è¼ 30-4-2025"
   }
 ]
