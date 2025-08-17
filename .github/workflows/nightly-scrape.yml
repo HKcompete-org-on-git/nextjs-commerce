@@ -17,6 +17,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Show repo tree (debug)
+        shell: bash
+        run: |
+          pwd
+          ls -la
+          find . -maxdepth 2 -type f \( -name "requirements.txt" -o -name "scraper.py" \) | sort || true
 
       - name: Show repo tree (debug)
         shell: bash
