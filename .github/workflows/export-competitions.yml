@@ -1,62 +1,39 @@
-﻿name: Export JSON (manual + cron)
+name: Export Competitions
 
 on:
-  workflow_dispatch:      # show the Run workflow button
-  push:                   # also runs on any push to main
-    branches: [ main ]
   schedule:
-    - cron: "*/15 * * * *"  # every 15 minutes UTC
-
-permissions:
-  contents: write
+    - cron: "*/30 * * * *"   # every 30 minutes
+  workflow_dispatch: {}
 
 jobs:
   export:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Run exporter (or make placeholder)
+      - name: Install deps
         run: |
-          if [ -f scripts/export_json.py ]; then
-            echo "Found scripts/export_json.py"
-            python scripts/export_json.py --out competitions.json || (echo "Exporter failed, making placeholder" && python - <<'PY'
-import json, time
-with open("competitions.json","w",encoding="utf-8") as f:
-    json.dump({"generated_at": time.strftime("%Y-%m-%d %H:%M:%S"), "items":[]}, f, ensure_ascii=False, indent=2)
-print("Wrote competitions.json (placeholder)")
-PY
-)
-          else
-            echo "scripts/export_json.py not found, making placeholder"
-            python - <<'PY'
-import json, time
-with open("competitions.json","w",encoding="utf-8") as f:
-    json.dump({"generated_at": time.strftime("%Y-%m-%d %H:%M:%S"), "items":[]}, f, ensure_ascii=False, indent=2)
-print("Wrote competitions.json (placeholder)")
-PY
-          fi
-          echo "== repo root =="
-          ls -la
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt || true
+          pip install beautifulsoup4 dateparser requests
 
-      - name: Upload artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: competitions-json
-          path: competitions.json
-          if-no-files-found: error
-
-      - name: Commit competitions.json (always)
+      - name: Run scraper (write public/competitions.json)
         run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f competitions.json
-          git commit -m "update: competitions.json (auto commit) [skip ci]" || echo "No changes to commit"
-          git push || echo "Push skipped"
+          python scraper.py --out public/competitions.json --pretty --limit 200
+        working-directory: .
+
+      - name: Commit export
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/competitions.json
+          git commit -m "export: refresh competitions" || echo "No changes"
+          git push
