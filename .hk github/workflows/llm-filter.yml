@@ -1,0 +1,62 @@
+name: LLM Filter (no-key)
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # every 6 hours
+  workflow_dispatch: {}
+
+jobs:
+  filter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake wget
+
+      - name: Build llama.cpp (main binary)
+        run: |
+          git clone --depth 1 https://github.com/ggerganov/llama.cpp.git
+          cd llama.cpp
+          make -j"$(nproc)" main
+          echo "LLAMA_MAIN_BIN=$PWD/main" >> "$GITHUB_ENV"
+
+      - name: Download TinyLlama GGUF (open, small)
+        run: |
+          mkdir -p models
+          wget -O models/TinyLlama-1.1B-Chat-v1.0.Q4_K_M.gguf \
+            https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
+          echo "LLAMA_MODEL_PATH=$PWD/models/TinyLlama-1.1B-Chat-v1.0.Q4_K_M.gguf" >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # OPTIONAL: refresh your raw competitions first (uncomment if your scraper is in this repo)
+      # - name: Run scraper (update public/competitions.json)
+      #   run: |
+      #     python scraper.py --out public/competitions.json --pretty --limit 200
+      #   working-directory: .
+
+      - name: Run local LLM filter (no API key)
+        env:
+          LLAMA_MAIN_BIN: ${{ env.LLAMA_MAIN_BIN }}
+          LLAMA_MODEL_PATH: ${{ env.LLAMA_MODEL_PATH }}
+          LLM_FILTER_MAX: "300"
+        run: |
+          python scripts/llm_filter.py
+        working-directory: .
+
+      - name: Commit filtered outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/competitions.filtered.json admin/llm_rejections.jsonl || true
+          git commit -m "LLM filter: refresh filtered competitions (no-key)" || echo "No changes to commit"
+          git push
