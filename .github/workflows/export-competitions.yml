@@ -36,7 +36,6 @@ jobs:
         run: |
           python scraper.py --out public/competitions.json --pretty
         working-directory: .
-
       - name: Commit export
         run: |
           git config user.name "github-actions[bot]"
@@ -44,12 +43,19 @@ jobs:
           git add public/competitions.json
           git commit -m "export: refresh competitions" || echo "No changes"
 
-      - name: Push changes (PAT)
+      - name: Set PAT remote (force this repo)
         env:
           PAT: ${{ secrets.PUSH_TOKEN }}
           REPO: ${{ github.repository }}
-          BRANCH: ${{ github.ref_name }}
         run: |
-          git push "https://x-access-token:${PAT}@github.com/${REPO}.git" HEAD:${BRANCH}
+          echo "Repo=${REPO}"
+          git remote -v
+          git remote set-url origin "https://x-access-token:${PAT}@github.com/${REPO}.git"
+          echo "--- after set-url ---"
+          git remote -v
+
+      - name: Push changes
+        run: |
+          git push origin HEAD:${{ github.ref_name }}
 
   
